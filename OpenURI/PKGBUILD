@@ -1,0 +1,19 @@
+pkgname='xi-portal-open-uri'
+pkgdesc='OpenURI portal'
+pkgver='0.0.0'
+arch=('amd64')
+url='https://github.com/xi/xi-portal'
+license='MIT'
+depends=(
+	libglib2.0-0t64
+)
+makedepends=(
+	libgio-2.0-dev
+)
+
+package() {
+	make
+	install -Dm 755 open-uri "$pkgdir/usr/bin/$pkgname"
+	install -Dm 644 systemd/service "$pkgdir/usr/lib/systemd/user/$pkgname@.service"
+	install -Dm 644 systemd/socket "$pkgdir/usr/lib/systemd/user/$pkgname.socket"
+}

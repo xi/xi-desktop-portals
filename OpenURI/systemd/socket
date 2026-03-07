@@ -1,0 +1,9 @@
+[Unit]
+Description=OpenURI portal
+
+[Socket]
+ListenStream=%t/xi.portal.OpenURI
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

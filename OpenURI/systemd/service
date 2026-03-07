@@ -1,0 +1,7 @@
+[Unit]
+Description=OpenURI portal
+Requires=xi-portal-open-uri.socket
+
+[Service]
+ExecStart=/usr/bin/xi-portal-open-uri
+KillMode=process
