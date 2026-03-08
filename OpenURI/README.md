@@ -26,7 +26,8 @@ $ printf "https://example.com" | nc -U "$XDG_RUNTIME_DIR/xi.portal.OpenURI"`
 -   How to pass [activation tokens](https://wayland.app/protocols/xdg-activation-v1)?
 -   It is not clear how support for `file://` URIs should be implemented. The
     namespace is available at `/proc/{pid}/root/`, but that will go away when
-    the calling process exits.
+    the calling process exits. The reference implementation currently only
+    allows to open files that also exist on the same location on the host.
 
 ## Compatibility Considerations
 
