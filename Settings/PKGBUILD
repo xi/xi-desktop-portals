@@ -1,0 +1,18 @@
+pkgname='xi-portal-settings-sync'
+pkgdesc='Sync Settings portal to gsettings'
+pkgver='0.0.0'
+arch=('amd64')
+url='https://github.com/xi/xi-desktop-portals'
+license='MIT'
+depends=(
+	libglib2.0-0t64
+)
+makedepends=(
+	libgio-2.0-dev
+)
+
+package() {
+	make
+	install -Dm 755 sync "$pkgdir/usr/bin/$pkgname"
+	install -Dm 644 systemd/service "$pkgdir/usr/lib/systemd/user/$pkgname.service"
+}

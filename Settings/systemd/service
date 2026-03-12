@@ -1,0 +1,8 @@
+[Unit]
+Description=Settings portal sync
+
+[Service]
+ExecStart=/usr/bin/xi-portal-settings-sync
+
+[Install]
+WantedBy=graphical-session.target
