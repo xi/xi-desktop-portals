@@ -1,113 +1,120 @@
-#include <dirent.h>
-#include <fcntl.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/inotify.h>
-#include <sys/epoll.h>
-#include <unistd.h>
+#include <string.h>
 
 #include <gio/gio.h>
+#include <glib.h>
 
-#define EVENT_SIZE (sizeof(struct inotify_event))
-#define BUF_LEN (1024 * (EVENT_SIZE + 16))
-
-char root[PATH_MAX - 64];
 GSettings *settings, *settings_a11y;
 
-void on_change(const char *key) {
-    char path[PATH_MAX];
-    snprintf(path, sizeof(path), "%s/%s", root, key);
-
-    int fd = open(path, O_RDONLY);
-    if (fd < 0) {
+static void on_change(GFile *file) {
+    gchar *value = NULL;
+    if (!g_file_load_contents(file, NULL, &value, NULL, NULL, NULL)) {
         return;
     }
-    char value[256];
-    int len = read(fd, value, sizeof(value) - 1);
-    close(fd);
-    if (len < 0) {
-        return;
-    }
-    value[len] = '\0';
-    g_strchomp(value);
+    g_strstrip(value);
 
-    if (strcmp(key, "color-scheme") == 0) {
-        if (strcmp(value, "dark") == 0) {
+    gchar *key = g_file_get_basename(file);
+
+    if (g_strcmp0(key, "color-scheme") == 0) {
+        if (g_strcmp0(value, "dark") == 0) {
             g_settings_set_string(settings, "color-scheme", "prefer-dark");
-        } else if (strcmp(value, "light") == 0) {
+        } else if (g_strcmp0(value, "light") == 0) {
             g_settings_set_string(settings, "color-scheme", "prefer-light");
         } else {
             g_settings_set_string(settings, "color-scheme", "default");
         }
-    } else if (strcmp(key, "accent-color") == 0) {
+    } else if (g_strcmp0(key, "accent-color") == 0) {
         // TODO: translate color to color name
         g_settings_set_string(settings, "accent-color", value);
-    } else if (strcmp(key, "reduced-motion") == 0) {
-        if (strcmp(value, "reduced") == 0) {
+    } else if (g_strcmp0(key, "reduced-motion") == 0) {
+        if (g_strcmp0(value, "reduced") == 0) {
             g_settings_set_string(settings_a11y, "reduced-motion", "reduce");
         } else {
-            g_settings_set_string(settings_a11y, "reduced-motion", "no-preference");
+            g_settings_set_string(
+                settings_a11y, "reduced-motion", "no-preference"
+            );
         }
-    } else if (strcmp(key, "contrast") == 0) {
-        if (strcmp(value, "high") == 0) {
+    } else if (g_strcmp0(key, "contrast") == 0) {
+        if (g_strcmp0(value, "high") == 0) {
             g_settings_set_boolean(settings_a11y, "high-contrast", TRUE);
         } else {
             g_settings_set_boolean(settings_a11y, "high-contrast", FALSE);
         }
     }
+
+    g_free(key);
+    g_free(value);
 }
 
-int main() {
-    snprintf(
-        root, sizeof(root), "%s/org.freedesktop.appearance", g_get_user_config_dir()
+static void on_monitor_changed(
+    GFileMonitor *monitor,
+    GFile *file,
+    GFile *other_file,
+    GFileMonitorEvent event_type,
+    gpointer user_data
+) {
+    if (event_type == G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT) {
+        on_change(file);
+    }
+}
+
+static void scan_initial_files(GFile *dir) {
+    GError *error = NULL;
+    GFileEnumerator *enumerator = g_file_enumerate_children(
+        dir,
+        G_FILE_ATTRIBUTE_STANDARD_NAME,
+        G_FILE_QUERY_INFO_NONE,
+        NULL,
+        &error
     );
 
+    if (error) {
+        g_error("Failed to enumerate directory: %s", error->message);
+        exit(EXIT_FAILURE);
+    }
+
+    GFileInfo *info;
+    GFile *child;
+    while ((info = g_file_enumerator_next_file(enumerator, NULL, NULL))) {
+        child = g_file_enumerator_get_child(enumerator, info);
+        on_change(child);
+        g_object_unref(child);
+        g_object_unref(info);
+    }
+
+    g_object_unref(enumerator);
+}
+
+int main(void) {
     settings = g_settings_new("org.gnome.desktop.interface");
     settings_a11y = g_settings_new("org.gnome.desktop.a11y.interface");
 
-    int fd = inotify_init();
-    if (fd < 0) {
-        perror("inotify_init");
+    gchar *root = g_build_filename(
+        g_get_user_config_dir(), "org.freedesktop.appearance", NULL
+    );
+    GFile *dir = g_file_new_for_path(root);
+    g_free(root);
+
+    GError *error = NULL;
+    GFileMonitor *monitor =
+        g_file_monitor_directory(dir, G_FILE_MONITOR_NONE, NULL, &error);
+    if (error) {
+        g_error("Failed to create monitor: %s", error->message);
         return EXIT_FAILURE;
     }
-    int wd = inotify_add_watch(fd, root, IN_CLOSE_WRITE);
-    if (wd < 0) {
-        perror("inotify_add_watch");
-        return EXIT_FAILURE;
-    }
+    g_signal_connect(monitor, "changed", G_CALLBACK(on_monitor_changed), NULL);
 
-    DIR *d = opendir(root);
-    struct dirent *entry;
-    if (d) {
-        while ((entry = readdir(d))) {
-            on_change(entry->d_name);
-        }
-        closedir(d);
-    }
+    scan_initial_files(dir);
 
-    int epfd = epoll_create(1);
-    struct epoll_event ev, events[1];
-    ev.events = EPOLLIN;
-    epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev);
+    GMainLoop *loop = g_main_loop_new(NULL, FALSE);
+    g_main_loop_run(loop);
 
-    char buf[BUF_LEN];
-    struct inotify_event *event;
+    g_main_loop_unref(loop);
+    g_object_unref(monitor);
+    g_object_unref(dir);
+    g_object_unref(settings);
+    g_object_unref(settings_a11y);
 
-    while (1) {
-        epoll_wait(epfd, events, 1, -1);
-
-        int length = read(fd, buf, sizeof(buf));
-        if (length < 0) {
-            perror("read");
-            return EXIT_FAILURE;
-        }
-
-        int i = 0;
-        while (i < length) {
-            event = (struct inotify_event *)&buf[i];
-            on_change(event->name);
-            i += EVENT_SIZE + event->len;
-        }
-    }
+    return EXIT_SUCCESS;
 }
