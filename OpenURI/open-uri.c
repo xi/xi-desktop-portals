@@ -25,6 +25,13 @@ int get_pidfd(int sock) {
     return pidfd;
 }
 
+char *uri_to_path(char *uri) {
+    GFile *file = g_file_new_for_uri(uri);
+    char *path = g_file_get_path(file);
+    g_object_unref(file);
+    return path;
+}
+
 int is_readable(int fd) {
     fd_set fds;
     struct timeval timeout;
@@ -66,17 +73,17 @@ int stat_at_root(const char *path, const char *root, struct stat *statbuf) {
     return 0;
 }
 
-int same_on_host(char *uri, int pidfd) {
+int same_on_host(char *path, int pidfd) {
     char root_sender[32];
     struct stat s_sender, s_host;
 
     snprintf(
         root_sender, sizeof(root_sender), "/proc/%i/root/", pidfd_getpid(pidfd)
     );
-    if (stat_at_root(uri + 7, root_sender, &s_sender) != 0) {
+    if (stat_at_root(path, root_sender, &s_sender) != 0) {
         return -1;
     }
-    if (stat_at_root(uri + 7, "/", &s_host) != 0) {
+    if (stat_at_root(path, "/", &s_host) != 0) {
         return -1;
     }
     if (s_sender.st_dev != s_host.st_dev || s_sender.st_ino != s_host.st_ino) {
@@ -105,9 +112,11 @@ int main() {
         if (pidfd < 0) {
             return EXIT_FAILURE;
         }
-        if (same_on_host(uri, pidfd) != 0) {
+        char *path = uri_to_path(uri);
+        if (same_on_host(path, pidfd) != 0) {
             return EXIT_FAILURE;
         }
+        free(path);
     }
 
     GError *error = NULL;
