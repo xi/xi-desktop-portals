@@ -25,6 +25,13 @@ int get_pidfd(int sock) {
     return pidfd;
 }
 
+char *path_to_uri(char *path) {
+    GFile *file = g_file_new_for_path(path);
+    char *uri = g_file_get_uri(file);
+    g_object_unref(file);
+    return uri;
+}
+
 char *uri_to_path(char *uri) {
     GFile *file = g_file_new_for_uri(uri);
     char *path = g_file_get_path(file);
@@ -106,6 +113,12 @@ int main() {
     }
     uri[n] = '\0';
     g_strchomp(uri);
+
+    if (strncmp(uri, "/", 1) == 0) {
+        char *tmp = path_to_uri(uri);
+        snprintf(uri, sizeof(uri), "%s", tmp);
+        free(tmp);
+    }
 
     if (strncmp(uri, "file://", 7) == 0) {
         int pidfd = get_pidfd(SOCK);
