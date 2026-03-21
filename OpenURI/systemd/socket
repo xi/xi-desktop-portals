@@ -4,6 +4,7 @@ Description=OpenURI portal
 [Socket]
 ListenStream=%t/xi.portal.OpenURI
 Accept=yes
+PollLimitBurst=2
 
 [Install]
 WantedBy=sockets.target
