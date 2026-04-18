@@ -5,4 +5,4 @@ Description=Settings portal sync
 ExecStart=/usr/bin/xi-portal-settings-sync
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=default.target
