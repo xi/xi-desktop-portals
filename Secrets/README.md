@@ -19,7 +19,7 @@ The Secrets portal allows to store passwords and other secrets.
 
 ## Compatibility Considerations
 
-This approach is not compatible with Flatkap, because its use of xdg-dbus-proxy
+This approach is not compatible with Flatpak, because its use of xdg-dbus-proxy
 obscures the calling application's mount namespace. The portal should
 therefore implement `org.freedesktop.Secret` and
 `org.freedesktop.portal.Secret` in addition to the interfaces described in this
