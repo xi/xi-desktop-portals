@@ -8,11 +8,12 @@ depends=(
 	libglib2.0-0t64
 )
 makedepends=(
+	cargo
 	libgio-2.0-dev
 )
 
 package() {
-	make
-	install -Dm 755 sync "$pkgdir/usr/bin/$pkgname"
+	cargo build -r
+	install -Dm 755 target/release/settings-sync "$pkgdir/usr/bin/$pkgname"
 	install -Dm 644 systemd/service "$pkgdir/usr/lib/systemd/user/$pkgname.service"
 }
