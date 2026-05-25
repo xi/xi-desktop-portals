@@ -1,0 +1,13 @@
+[package]
+name = "open-uri"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+gio = "0.21"
+libc = "0.2"
+nix = { version = "0.31", features = ["fs", "poll", "socket"] }
+
+[profile.release]
+strip = true
