@@ -7,18 +7,19 @@ The OpenURI portal allows applications to open URIs (e.g. `https://`,
 
 -   To open a URI, an application should
     -   connect to the socket at `$XDG_RUNTIME_DIR/xi.portal.OpenURI`
-    -   send the URI
+    -   send the URI, terminated with a newline `\n`
     -   read the response
     -   close the connection
 -   On success, the response is an empty string.
--   On error, the response is a human-readable error message.
+-   On error, the response is a human-readable error message, terminated with a
+    newline `\n`.
 -   `file://` URIs must be interpreted in the mount namespace of the calling
     process
 
 Example usage:
 
 ```sh
-$ printf "https://example.com" | nc -U "$XDG_RUNTIME_DIR/xi.portal.OpenURI"`
+$ echo "https://example.com" | nc -U "$XDG_RUNTIME_DIR/xi.portal.OpenURI"`
 ```
 
 ## Open Questions

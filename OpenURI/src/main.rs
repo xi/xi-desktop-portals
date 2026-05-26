@@ -62,6 +62,9 @@ fn read_input(stream: &mut UnixStream) -> Result<String> {
             break;
         }
     }
+    if buf.pop().context("empty input")? != b'\n' {
+        return Err(anyhow!("input not terminated by \\n"));
+    }
     let input = String::from_utf8(buf)?;
     return Ok(input);
 }
@@ -89,6 +92,7 @@ fn main() -> Result<()> {
         Ok(()) => Ok(()),
         Err(e) => {
             stream.write_all(e.message().as_bytes())?;
+            stream.write_all(&[b'\n'])?;
             return Err(e.into());
         }
     };
