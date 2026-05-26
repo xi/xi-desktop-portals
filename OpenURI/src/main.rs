@@ -69,11 +69,9 @@ fn read_input(stream: &mut UnixStream) -> Result<String> {
     return Ok(input);
 }
 
-fn main() -> Result<()> {
-    let mut stream = unsafe { UnixStream::from_raw_fd(SOCK_FD) };
+fn read_and_open(stream: &mut UnixStream) -> Result<()> {
     stream.set_nonblocking(true)?;
-
-    let mut uri = read_input(&mut stream)?;
+    let mut uri = read_input(stream)?;
 
     if uri.starts_with('/') {
         uri = gio::File::for_path(uri).uri().to_string();
@@ -88,12 +86,15 @@ fn main() -> Result<()> {
         same_on_host(&path, pid, pidfd)?;
     }
 
-    return match gio::AppInfo::launch_default_for_uri(&uri, gio::AppLaunchContext::NONE) {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            stream.write_all(e.message().as_bytes())?;
-            stream.write_all(&[b'\n'])?;
-            return Err(e.into());
-        }
-    };
+    gio::AppInfo::launch_default_for_uri(&uri, gio::AppLaunchContext::NONE)?;
+
+    return Ok(());
+}
+
+fn main() {
+    let mut stream = unsafe { UnixStream::from_raw_fd(SOCK_FD) };
+
+    if let Err(e) = read_and_open(&mut stream) {
+        stream.write_all(format!("{}\n", e).as_bytes()).unwrap();
+    }
 }
