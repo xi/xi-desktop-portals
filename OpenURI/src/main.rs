@@ -12,7 +12,6 @@ use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 
-const MAX_URI_LENGTH: usize = 1024;
 const SOCK_FD: RawFd = 3;
 
 fn check_running(pidfd: &OwnedFd) -> Result<()> {
@@ -53,12 +52,25 @@ fn same_on_host(path: &Path, pid: pid_t, pidfd: OwnedFd) -> Result<()> {
     }
 }
 
+fn read_input(stream: &mut UnixStream) -> Result<String> {
+    let mut buf = vec![];
+    loop {
+        let mut tmp = [0u8; 1024];
+        let n = stream.read(&mut tmp)?;
+        buf.append(&mut tmp[..n].to_vec());
+        if n < tmp.len() {
+            break;
+        }
+    }
+    let input = String::from_utf8(buf)?;
+    return Ok(input);
+}
+
 fn main() -> Result<()> {
     let mut stream = unsafe { UnixStream::from_raw_fd(SOCK_FD) };
+    stream.set_nonblocking(true)?;
 
-    let mut buf = [0u8; MAX_URI_LENGTH];
-    let n = stream.read(&mut buf)?;
-    let mut uri = String::from_utf8(buf[..n - 1].to_vec())?;
+    let mut uri = read_input(&mut stream)?;
 
     if uri.starts_with('/') {
         uri = gio::File::for_path(uri).uri().to_string();
