@@ -18,7 +18,9 @@ fn check_running(pidfd: &OwnedFd) -> Result<()> {
     let mut pollfds = [PollFd::new(pidfd.as_fd(), PollFlags::POLLIN)];
     let nready = poll(&mut pollfds, PollTimeout::ZERO)?;
     if nready != 0 {
-        return Err(anyhow!("sender no longer available"));
+        return Err(anyhow!(
+            "The client's mount namespace is no longer available"
+        ));
     }
     return Ok(());
 }
@@ -41,15 +43,14 @@ fn same_on_host(path: &Path, pid: pid_t, pidfd: OwnedFd) -> Result<()> {
     sender_root.push("root");
 
     let st_sender = stat_at_root(path, sender_root.as_path())?;
-    let st_host = stat_at_root(path, Path::new("/"))?;
-
     check_running(&pidfd)?;
 
-    if st_sender.st_dev == st_host.st_dev && st_sender.st_ino == st_host.st_ino {
-        return Ok(());
-    } else {
-        return Err(anyhow!("Not the same file on the host"));
+    if let Ok(st_host) = stat_at_root(path, Path::new("/")) {
+        if st_sender.st_dev == st_host.st_dev && st_sender.st_ino == st_host.st_ino {
+            return Ok(());
+        }
     }
+    return Err(anyhow!("Not the same file on the host"));
 }
 
 fn read_input(stream: &mut UnixStream) -> Result<String> {
@@ -62,8 +63,8 @@ fn read_input(stream: &mut UnixStream) -> Result<String> {
             break;
         }
     }
-    if buf.pop().context("empty input")? != b'\n' {
-        return Err(anyhow!("input not terminated by \\n"));
+    if buf.pop().context("Invalid input: empty")? != b'\n' {
+        return Err(anyhow!("Invalid input: newline"));
     }
     let input = String::from_utf8(buf)?;
     return Ok(input);
@@ -80,9 +81,7 @@ fn read_and_open(stream: &mut UnixStream) -> Result<()> {
     if uri.starts_with("file://") {
         let pid = getsockopt(&stream, sockopt::PeerCredentials)?.pid();
         let pidfd = getsockopt(&stream, sockopt::PeerPidfd)?;
-        let path = gio::File::for_uri(&uri)
-            .path()
-            .context("file has no local path")?;
+        let path = gio::File::for_uri(&uri).path().unwrap();
         same_on_host(&path, pid, pidfd)?;
     }
 
