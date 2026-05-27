@@ -1,7 +1,5 @@
 use anyhow::{Context, Result};
-use gio;
 use gio::prelude::{FileEnumeratorExt, FileExt, FileMonitorExt, SettingsExt};
-use glib;
 use std::fs;
 use std::path::PathBuf;
 
@@ -42,7 +40,7 @@ fn on_change(
         }
         _ => {}
     }
-    return Ok(());
+    Ok(())
 }
 
 fn scan_initial_files(
@@ -56,14 +54,12 @@ fn scan_initial_files(
         gio::Cancellable::NONE,
     )?;
 
-    for entry in enumerator.clone() {
-        if let Ok(info) = entry {
-            let child = enumerator.child(&info);
-            let _ = on_change(settings, settings_a11y, &child);
-        }
+    for info in enumerator.clone().flatten() {
+        let child = enumerator.child(&info);
+        let _ = on_change(settings, settings_a11y, &child);
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -82,7 +78,7 @@ fn main() -> Result<()> {
     let sa = settings_a11y.clone();
     monitor.connect_changed(move |_monitor, file, _other, event_type| {
         if event_type == gio::FileMonitorEvent::ChangesDoneHint {
-            let _ = on_change(&s, &sa, &file);
+            let _ = on_change(&s, &sa, file);
         }
     });
 
@@ -90,5 +86,5 @@ fn main() -> Result<()> {
 
     glib::MainLoop::new(None, false).run();
 
-    return Ok(());
+    Ok(())
 }
