@@ -25,10 +25,10 @@ fn check_running(pidfd: &OwnedFd) -> Result<()> {
 }
 
 fn stat_at_root(path: &Path, root: &Path) -> Result<FileStat> {
-    let root_fd = open(root, OFlag::O_RDONLY | OFlag::O_DIRECTORY, Mode::empty())?;
+    let root_fd = open(root, OFlag::O_PATH | OFlag::O_DIRECTORY, Mode::empty())?;
 
     let how = OpenHow::new()
-        .flags(OFlag::O_RDONLY)
+        .flags(OFlag::O_PATH)
         .resolve(ResolveFlag::RESOLVE_IN_ROOT);
     let fd = openat2(root_fd, path, how)?;
 
